@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "RiviumTraceExample"
+include ':app'
+include ':rivium-trace-sdk'
+project(':rivium-trace-sdk').projectDir = new File(settingsDir, '../rivium-trace-sdk')
