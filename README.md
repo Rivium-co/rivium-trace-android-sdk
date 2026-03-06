@@ -1,16 +1,20 @@
 # RiviumTrace Android SDK
 
-Official Android SDK for [RiviumTrace](https://rivium.co) - Error Tracking and A/B Testing platform.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Official Android SDK for [RiviumTrace](https://rivium.co/cloud/rivium-trace) - Error tracking, crash detection, and performance monitoring for Android apps.
+
+**[RiviumTrace Landing Page](https://rivium.co/cloud/rivium-trace)** | **[Documentation](https://rivium.co/cloud/rivium-trace/docs/sdks-android)** | **[Issues](https://github.com/Rivium-co/rivium-trace-android-sdk/issues)**
 
 ## Features
 
-- **Error Tracking**: Automatically capture uncaught exceptions and crashes
-- **ANR Detection**: Detect Application Not Responding events
-- **Crash Detection**: Detect native crashes from previous sessions
-- **Breadcrumbs**: Track user actions leading up to errors
-- **A/B Testing**: Run experiments and track conversions
-- **Offline Support**: Cache errors when offline
-- **Minimum API 16**: Supports Android 4.1+ (99.9% of devices)
+- **Error Tracking** - Automatically capture uncaught exceptions and crashes
+- **ANR Detection** - Detect Application Not Responding events
+- **Crash Detection** - Detect native crashes from previous sessions
+- **Breadcrumbs** - Track user actions leading up to errors
+- **OkHttp Integration** - Automatic HTTP request tracking
+- **Offline Support** - Cache errors when offline
+- **Minimum API 16** - Supports Android 4.1+ (99.9% of devices)
 
 ## Installation
 
@@ -31,7 +35,7 @@ Add the dependency to your app's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'com.github.rivium-trace:rivium-trace-android-sdk:1.0.0'
+    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.1.0'
 }
 ```
 
@@ -46,9 +50,9 @@ dependencies {
 </repositories>
 
 <dependency>
-    <groupId>com.github.rivium-trace</groupId>
+    <groupId>com.github.Rivium-co</groupId>
     <artifactId>rivium-trace-android-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -63,7 +67,7 @@ class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        val config = RiviumTraceConfig.Builder("nl_live_your_api_key")
+        val config = RiviumTraceConfig.Builder("rv_live_your_api_key")
             .environment(if (BuildConfig.DEBUG) "development" else "production")
             .release(BuildConfig.VERSION_NAME)
             .debug(BuildConfig.DEBUG)
@@ -132,83 +136,12 @@ RiviumTrace.addBreadcrumb("Custom event", BreadcrumbType.INFO, mapOf("key" to "v
 ### 4. User Context
 
 ```kotlin
-// Set user ID (required for A/B testing)
+// Set user ID
 RiviumTrace.setUserId("user-123")
 
 // Add custom context
 RiviumTrace.setExtra("subscription", "premium")
 RiviumTrace.setTag("build_type", "release")
-```
-
-## A/B Testing
-
-### Initialize A/B Testing
-
-```kotlin
-// Initialize (fetches experiments from server)
-RiviumTrace.initializeABTesting { success ->
-    if (success) {
-        Log.d("RiviumTrace", "A/B testing ready")
-    }
-}
-
-// Set user ID (required)
-RiviumTrace.setUserId("user-123")
-```
-
-### Get Variant Assignment
-
-```kotlin
-// Async
-RiviumTrace.getAssignment("checkout-flow-experiment") { assignment ->
-    when (assignment?.variantName) {
-        "control" -> showOldCheckout()
-        "variant_a" -> showNewCheckout()
-        else -> showOldCheckout()  // Default
-    }
-}
-
-// Check specific variant
-RiviumTrace.isInVariant("checkout-flow", "variant_a") { isInVariant ->
-    if (isInVariant) {
-        showNewFeature()
-    }
-}
-
-// Get variant config value
-RiviumTrace.getVariantConfig("button-color", "color", "#0000FF") { color ->
-    button.setBackgroundColor(Color.parseColor(color))
-}
-```
-
-### Track Events
-
-```kotlin
-// Track conversion
-RiviumTrace.trackConversion(
-    experimentId = "checkout-flow",
-    eventName = "purchase",
-    eventValue = 99.99,
-    metadata = mapOf("currency" to "USD")
-)
-
-// Track click
-RiviumTrace.trackABEvent(
-    experimentId = "checkout-flow",
-    eventType = ABEventType.CLICK,
-    eventName = "buy_button"
-)
-
-// Track view
-RiviumTrace.trackABEvent(
-    experimentId = "checkout-flow",
-    eventType = ABEventType.VIEW,
-    eventName = "product_page"
-)
-
-// Convenience methods
-RiviumTrace.trackClick(experimentId = "checkout-flow", elementName = "buy_button")
-RiviumTrace.trackView(experimentId = "checkout-flow", viewName = "product_page")
 ```
 
 ## OkHttp Integration
@@ -254,25 +187,11 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-**Example crash report:**
-```json
-{
-  "message": "Native crash detected from previous session",
-  "platform": "android",
-  "crash_time": "2025-11-12T03:24:20.000Z",
-  "extra": {
-    "error_type": "native_crash",
-    "time_since_crash_seconds": 293,
-    "last_activity": "CheckoutActivity"
-  }
-}
-```
-
-## Configuration Options
+## Configuration
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `apiKey` | Required | Your API key from Rivium Console (nl_live_xxx or nl_test_xxx) |
+| `apiKey` | Required | Your API key from Rivium Console (`rv_live_xxx` or `rv_test_xxx`) |
 | `environment` | `"production"` | Environment name (production, staging, etc.) |
 | `release` | null | App version string |
 | `debug` | false | Enable debug logging |
@@ -299,25 +218,30 @@ The SDK includes ProGuard rules automatically. No additional configuration neede
 
 | Android Version | API Level | Support |
 |----------------|-----------|---------|
-| Android 4.1 Jelly Bean | 16 | ✅ |
-| Android 4.4 KitKat | 19 | ✅ |
-| Android 5.0 Lollipop | 21 | ✅ |
-| Android 6.0 Marshmallow | 23 | ✅ |
-| Android 7.0 Nougat | 24 | ✅ |
-| Android 8.0 Oreo | 26 | ✅ |
-| Android 9.0 Pie | 28 | ✅ |
-| Android 10 | 29 | ✅ |
-| Android 11 | 30 | ✅ |
-| Android 12 | 31 | ✅ |
-| Android 13 | 33 | ✅ |
-| Android 14 | 34 | ✅ |
+| Android 4.1 Jelly Bean | 16 | Supported |
+| Android 4.4 KitKat | 19 | Supported |
+| Android 5.0 Lollipop | 21 | Supported |
+| Android 6.0 Marshmallow | 23 | Supported |
+| Android 7.0 Nougat | 24 | Supported |
+| Android 8.0 Oreo | 26 | Supported |
+| Android 9.0 Pie | 28 | Supported |
+| Android 10 | 29 | Supported |
+| Android 11 | 30 | Supported |
+| Android 12 | 31 | Supported |
+| Android 13 | 33 | Supported |
+| Android 14 | 34 | Supported |
+
+## Examples
+
+See the [example app](./example) for a complete working implementation.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-- Documentation: https://docs.rivium.co
-- Issues: https://github.com/rivium-trace/rivium-trace-android-sdk/issues
+- Landing Page: https://rivium.co/cloud/rivium-trace
+- Documentation: https://rivium.co/cloud/rivium-trace/docs/sdks-android
+- Issues: https://github.com/Rivium-co/rivium-trace-android-sdk/issues
 - Email: support@rivium.co
