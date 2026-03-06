@@ -21,9 +21,19 @@ Official Android SDK for [RiviumTrace](https://rivium.co/cloud/rivium-trace) - E
 
 ## Installation
 
-### Gradle
+### Gradle (Maven Central)
 
-Add JitPack repository to your project's `build.gradle`:
+Add the dependency to your app's `build.gradle`:
+
+```gradle
+dependencies {
+    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.1.0'
+}
+```
+
+### Gradle (JitPack)
+
+Alternatively, you can use JitPack. Add the repository to your project's `build.gradle`:
 
 ```gradle
 allprojects {
@@ -34,7 +44,7 @@ allprojects {
 }
 ```
 
-Add the dependency to your app's `build.gradle`:
+Then add the dependency:
 
 ```gradle
 dependencies {
@@ -45,15 +55,8 @@ dependencies {
 ### Maven
 
 ```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-    </repository>
-</repositories>
-
 <dependency>
-    <groupId>com.github.Rivium-co</groupId>
+    <groupId>co.rivium.trace</groupId>
     <artifactId>rivium-trace-android-sdk</artifactId>
     <version>0.1.0</version>
 </dependency>
