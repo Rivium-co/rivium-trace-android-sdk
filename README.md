@@ -27,7 +27,7 @@ Add the dependency to your app's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.1.0'
+    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.1.1'
 }
 ```
 
@@ -48,7 +48,7 @@ Then add the dependency:
 
 ```gradle
 dependencies {
-    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.1.0'
+    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.1.1'
 }
 ```
 
@@ -58,13 +58,13 @@ dependencies {
 <dependency>
     <groupId>co.rivium.trace</groupId>
     <artifactId>rivium-trace-android-sdk</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
 ## Quick Start
 
-### 1. Initialize the SDK
+### Rivium Cloud (Default)
 
 In your `Application` class:
 
@@ -85,10 +85,24 @@ class MyApp : Application() {
     }
 
     override fun onTerminate() {
-        RiviumTrace.close()  // Graceful shutdown
+        RiviumTrace.close()
         super.onTerminate()
     }
 }
+```
+
+### Self-Hosted
+
+If you're running [RiviumTrace Self-Hosted](https://github.com/Rivium-co/rivium-selfhosted), just add `.apiUrl()` pointing to your server:
+
+```kotlin
+val config = RiviumTraceConfig.Builder("rv_live_your_api_key")
+    .apiUrl("http://your-server:3001")  // Your self-hosted Trace API
+    .environment(if (BuildConfig.DEBUG) "development" else "production")
+    .release(BuildConfig.VERSION_NAME)
+    .build()
+
+RiviumTrace.init(this, config)
 ```
 
 ### 2. Capture Errors
@@ -384,6 +398,7 @@ class MainActivity : AppCompatActivity() {
 | Option | Default | Description |
 |--------|---------|-------------|
 | `apiKey` | Required | Your API key from Rivium Console (`rv_live_xxx` or `rv_test_xxx`) |
+| `apiUrl` | `https://trace.rivium.co` | API URL — set for self-hosted only |
 | `environment` | `"production"` | Environment name (production, staging, etc.) |
 | `release` | null | App version string |
 | `debug` | false | Enable debug logging |
