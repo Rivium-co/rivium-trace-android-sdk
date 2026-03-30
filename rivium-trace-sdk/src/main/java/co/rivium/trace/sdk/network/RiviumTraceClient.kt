@@ -17,10 +17,11 @@ class RiviumTraceClient(
     private val config: RiviumTraceConfig
 ) {
     companion object {
-        private const val BASE_URL = "https://trace.rivium.co"
         private val JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8")
         private const val API_KEY_HEADER = "X-API-Key"
     }
+
+    private val baseUrl: String = config.apiUrl.trimEnd('/')
 
     private val gson: Gson = GsonBuilder()
         .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
@@ -37,7 +38,7 @@ class RiviumTraceClient(
      * Send an error to RiviumTrace
      */
     fun sendError(error: RiviumTraceError, callback: ((Boolean, String?) -> Unit)? = null) {
-        val url = "$BASE_URL/api/errors"
+        val url = "$baseUrl/api/errors"
         val json = gson.toJson(error.toMap())
         val body = RequestBody.create(JSON_MEDIA_TYPE, json)
 
@@ -77,7 +78,7 @@ class RiviumTraceClient(
      * Send an error synchronously (for use in crash handlers)
      */
     fun sendErrorSync(error: RiviumTraceError): Boolean {
-        val url = "$BASE_URL/api/errors"
+        val url = "$baseUrl/api/errors"
         val json = gson.toJson(error.toMap())
         val body = RequestBody.create(JSON_MEDIA_TYPE, json)
 
@@ -104,7 +105,7 @@ class RiviumTraceClient(
      * Send a message to RiviumTrace
      */
     fun sendMessage(message: RiviumTraceError, callback: ((Boolean, String?) -> Unit)? = null) {
-        val url = "$BASE_URL/api/messages"
+        val url = "$baseUrl/api/messages"
         val json = gson.toJson(message.toMap())
         val body = RequestBody.create(JSON_MEDIA_TYPE, json)
 
@@ -144,7 +145,7 @@ class RiviumTraceClient(
      * Send a performance span to RiviumTrace APM
      */
     fun sendPerformanceSpan(span: PerformanceSpan, callback: ((Boolean, String?) -> Unit)? = null) {
-        val url = "$BASE_URL/api/performance/spans"
+        val url = "$baseUrl/api/performance/spans"
         val json = gson.toJson(span.toMap())
         val body = RequestBody.create(JSON_MEDIA_TYPE, json)
 
@@ -189,7 +190,7 @@ class RiviumTraceClient(
             return
         }
 
-        val url = "$BASE_URL/api/performance/spans/batch"
+        val url = "$baseUrl/api/performance/spans/batch"
         val json = gson.toJson(mapOf("spans" to spans.map { it.toMap() }))
         val body = RequestBody.create(JSON_MEDIA_TYPE, json)
 

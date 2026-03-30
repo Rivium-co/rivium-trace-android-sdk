@@ -43,7 +43,8 @@ class LogService(
     private val release: String? = null,
     private val batchSize: Int = 50,
     private val flushIntervalMs: Long = 30000,
-    private val maxBufferSize: Int = 1000
+    private val maxBufferSize: Int = 1000,
+    apiUrl: String = "https://trace.rivium.co"
 ) : DefaultLifecycleObserver {
     private val buffer = CopyOnWriteArrayList<LogEntry>()
     private val isFlushing = AtomicBoolean(false)
@@ -53,7 +54,7 @@ class LogService(
     private val retryAttempt = AtomicInteger(0)
     @Volatile private var isAppActive = true
 
-    private val apiEndpoint = "https://trace.rivium.co"
+    private val apiEndpoint = apiUrl.trimEnd('/')
 
     // Exponential backoff constants
     private val baseRetryDelayMs: Long = 1000

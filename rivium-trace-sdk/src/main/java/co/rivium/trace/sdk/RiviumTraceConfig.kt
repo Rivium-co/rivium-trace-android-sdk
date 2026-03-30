@@ -16,6 +16,7 @@ package co.rivium.trace.sdk
  * @property httpTimeout HTTP request timeout in seconds
  * @property enableOfflineStorage Cache errors when offline for later sending
  * @property sampleRate Sample rate for error capture (0.0 to 1.0)
+ * @property apiUrl Base URL of the RiviumTrace server (override for self-hosted instances)
  */
 data class RiviumTraceConfig(
     val apiKey: String,
@@ -30,7 +31,8 @@ data class RiviumTraceConfig(
     val maxBreadcrumbs: Int = 20,
     val httpTimeout: Int = 30,
     val enableOfflineStorage: Boolean = true,
-    val sampleRate: Float = 1.0f
+    val sampleRate: Float = 1.0f,
+    val apiUrl: String = "https://trace.rivium.co"
 ) {
     init {
         require(apiKey.isNotBlank()) { "API key cannot be empty" }
@@ -56,6 +58,7 @@ data class RiviumTraceConfig(
         private var httpTimeout: Int = 30
         private var enableOfflineStorage: Boolean = true
         private var sampleRate: Float = 1.0f
+        private var apiUrl: String = "https://trace.rivium.co"
 
         fun environment(environment: String) = apply { this.environment = environment }
         fun release(release: String?) = apply { this.release = release }
@@ -69,6 +72,7 @@ data class RiviumTraceConfig(
         fun httpTimeout(timeout: Int) = apply { this.httpTimeout = timeout }
         fun enableOfflineStorage(enable: Boolean) = apply { this.enableOfflineStorage = enable }
         fun sampleRate(rate: Float) = apply { this.sampleRate = rate }
+        fun apiUrl(url: String) = apply { this.apiUrl = url }
 
         fun build(): RiviumTraceConfig = RiviumTraceConfig(
             apiKey = apiKey,
@@ -83,7 +87,8 @@ data class RiviumTraceConfig(
             maxBreadcrumbs = maxBreadcrumbs,
             httpTimeout = httpTimeout,
             enableOfflineStorage = enableOfflineStorage,
-            sampleRate = sampleRate
+            sampleRate = sampleRate,
+            apiUrl = apiUrl
         )
     }
 

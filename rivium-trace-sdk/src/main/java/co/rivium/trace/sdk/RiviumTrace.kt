@@ -543,7 +543,8 @@ object RiviumTrace {
             environment = cfg.environment,
             release = cfg.release ?: DeviceInfo.getAppVersion(context!!),
             batchSize = batchSize,
-            flushIntervalMs = flushIntervalMs
+            flushIntervalMs = flushIntervalMs,
+            apiUrl = cfg.apiUrl
         )
 
         RiviumTraceLogger.debug("Logging enabled with sourceId: $sourceId")
