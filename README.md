@@ -64,7 +64,7 @@ dependencies {
 
 ## Quick Start
 
-### Rivium Cloud (Default)
+### Initialize the SDK (Default: Rivium Cloud)
 
 In your `Application` class:
 
@@ -91,7 +91,7 @@ class MyApp : Application() {
 }
 ```
 
-### Self-Hosted
+### Initialize the SDK (Advanced: Self-Hosted)
 
 If you're running [RiviumTrace Self-Hosted](https://github.com/Rivium-co/rivium-selfhosted), just add `.apiUrl()` pointing to your server:
 
