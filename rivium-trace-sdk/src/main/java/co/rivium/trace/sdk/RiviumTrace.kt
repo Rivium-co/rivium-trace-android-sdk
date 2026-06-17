@@ -45,7 +45,7 @@ object RiviumTrace {
     private var config: RiviumTraceConfig? = null
     private var client: RiviumTraceClient? = null
     private var context: Context? = null
-    private var crashDetector: CrashDetector? = null
+    private var nativeCrashReporter: NativeCrashReporter? = null
     private var anrWatchdog: ANRWatchdogService? = null
 
     private val isInitialized = AtomicBoolean(false)
@@ -100,12 +100,16 @@ object RiviumTrace {
         // Configure breadcrumbs
         BreadcrumbService.setMaxBreadcrumbs(config.maxBreadcrumbs)
 
-        // Setup crash detection
-        setupCrashDetection()
-
-        // Setup uncaught exception handler
+        // Setup uncaught exception handler (real JVM/Kotlin crashes)
         if (config.captureUncaughtExceptions) {
             setupUncaughtExceptionHandler()
+        }
+
+        // Native crash reporting via ApplicationExitInfo (API 30+).
+        // Drains any REASON_CRASH / REASON_CRASH_NATIVE / REASON_ANR exit
+        // records that occurred since the previous launch.
+        if (config.captureSignalCrashes) {
+            setupNativeCrashReporting()
         }
 
         // Setup ANR detection
@@ -654,9 +658,6 @@ object RiviumTrace {
         // Flush and shutdown log service
         logService?.shutdown()
 
-        // Delete crash marker (graceful shutdown)
-        crashDetector?.deleteMarker()
-
         // Stop ANR watchdog
         anrWatchdog?.stop()
 
@@ -682,31 +683,26 @@ object RiviumTrace {
         return true
     }
 
-    private fun setupCrashDetection() {
+    private fun setupNativeCrashReporting() {
         val ctx = context ?: return
-        crashDetector = CrashDetector(ctx)
+        val cfg = config ?: return
+        val c = client ?: return
 
-        // Check for crash from previous session
-        crashDetector?.checkForCrash()?.let { crashInfo ->
-            RiviumTraceLogger.info("Previous session crash detected, sending report...")
+        val reporter = NativeCrashReporter(ctx)
+        nativeCrashReporter = reporter
 
-            val cfg = config ?: return@let
-            val error = RiviumTraceError.nativeCrash(
-                crashInfo = "Session ID: ${crashInfo.sessionId ?: "unknown"}\n" +
-                        "Last Activity: ${crashInfo.lastActivity ?: "unknown"}\n" +
-                        "Crash Time: ${java.util.Date(crashInfo.timestamp)}",
-                environment = cfg.environment,
-                releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(ctx),
-                userAgent = userAgent,
-                timeSinceCrashSeconds = crashInfo.timeSinceCrashSeconds
-            )
-
-            // Send synchronously to ensure it's sent before app continues
-            client?.sendErrorSync(error)
+        // Drain any historical exit reasons (crashes, ANRs, native crashes)
+        // that occurred since our last poll. Send each one synchronously so
+        // they are not lost if the next event drops the network queue.
+        val errors = reporter.drainPendingCrashReports(
+            environment = cfg.environment,
+            releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(ctx),
+            userAgent = userAgent
+        )
+        for (error in errors) {
+            RiviumTraceLogger.info("Sending native crash from previous session (reason=${error.extra["exit_reason"]})")
+            c.sendErrorSync(error)
         }
-
-        // Create new crash marker for this session
-        crashDetector?.createMarker(sessionId)
     }
 
     private fun setupUncaughtExceptionHandler() {
@@ -773,21 +769,12 @@ object RiviumTrace {
     private fun setupLifecycleCallbacks() {
         val ctx = context ?: return
 
-        // Track app foreground/background and handle crash detection markers
         try {
             ProcessLifecycleOwner.get().lifecycle.addObserver(object : LifecycleEventObserver {
                 override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
                     when (event) {
-                        Lifecycle.Event.ON_START -> {
-                            BreadcrumbService.addSystem("App entered foreground")
-                            // Clear clean exit marker - app is now in foreground
-                            crashDetector?.clearCleanExit()
-                        }
-                        Lifecycle.Event.ON_STOP -> {
-                            BreadcrumbService.addSystem("App entered background")
-                            // Mark clean exit - app is going to background
-                            crashDetector?.markCleanExit()
-                        }
+                        Lifecycle.Event.ON_START -> BreadcrumbService.addSystem("App entered foreground")
+                        Lifecycle.Event.ON_STOP -> BreadcrumbService.addSystem("App entered background")
                         else -> {}
                     }
                 }
@@ -806,7 +793,6 @@ object RiviumTrace {
                     BreadcrumbService.addNavigation(currentActivity, activityName)
                     currentActivity = activityName
                     currentActivityName = activityName
-                    crashDetector?.updateLastActivity(activityName)
                 }
 
                 override fun onActivityStarted(activity: Activity) {}
@@ -817,7 +803,6 @@ object RiviumTrace {
                         BreadcrumbService.addNavigation(currentActivity, activityName)
                         currentActivity = activityName
                         currentActivityName = activityName
-                        crashDetector?.updateLastActivity(activityName)
                     }
                 }
 
