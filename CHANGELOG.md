@@ -2,7 +2,7 @@
 
 All notable changes to the RiviumTrace Android SDK will be documented in this file.
 
-## [2.0.0] - 2026-06-17
+## [0.2.0] - 2026-07-24
 
 ### Breaking changes
 - **Native crash detection is now backed by `ApplicationExitInfo` (API 30+).**
