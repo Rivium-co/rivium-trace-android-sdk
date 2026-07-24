@@ -93,10 +93,15 @@ class RiviumTraceClient(
         return try {
             val response = client.newCall(request).execute()
             val success = response.isSuccessful
+            if (!success) {
+                RiviumTraceLogger.error("sendErrorSync HTTP ${response.code()} url=$url")
+            }
             response.close()
             success
         } catch (e: Exception) {
-            RiviumTraceLogger.error("Failed to send error sync: ${e.message}")
+            RiviumTraceLogger.error(
+                "sendErrorSync ${e.javaClass.simpleName}: ${e.message ?: "no message"} url=$url"
+            )
             false
         }
     }

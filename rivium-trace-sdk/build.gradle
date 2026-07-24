@@ -2,6 +2,7 @@ plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
     id 'com.vanniktech.maven.publish'
+    id 'com.google.protobuf'
 }
 
 android {
@@ -65,11 +66,33 @@ dependencies {
     // WorkManager for background tasks (optional, for deferred error reporting)
     implementation 'androidx.work:work-runtime-ktx:2.9.0'
 
+    // Protobuf runtime for parsing binary Android tombstones produced by
+    // ApplicationExitInfo.getTraceInputStream() on API 30+. Lite runtime
+    // (~130KB) is the Android-optimised variant.
+    implementation 'com.google.protobuf:protobuf-javalite:3.25.5'
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:5.8.0'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+// Codegen Java classes from vendored tombstone.proto (see src/main/proto/).
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.25.5'
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                // "lite" produces the smaller runtime we depend on above.
+                java {
+                    option 'lite'
+                }
+            }
+        }
+    }
 }
 
 // Maven Central Publishing via Sonatype Central Portal

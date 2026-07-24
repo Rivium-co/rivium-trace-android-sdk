@@ -12,6 +12,15 @@ data class RiviumTraceError(
     @SerializedName("stack_trace")
     val stackTrace: String? = null,
 
+    /**
+     * Optional pre-resolved, structured stack trace. When set, the dashboard
+     * renders this as Sentry-style frames instead of the plain-text
+     * [stackTrace]. Native crashes populate this with a parsed tombstone JSON;
+     * plain Kotlin/Java errors leave it null.
+     */
+    @SerializedName("resolved_stack_trace")
+    val resolvedStackTrace: String? = null,
+
     val platform: String = "android",
 
     val environment: String = "production",
@@ -41,6 +50,7 @@ data class RiviumTraceError(
         return mapOf(
             "message" to message,
             "stack_trace" to stackTrace,
+            "resolved_stack_trace" to resolvedStackTrace,
             "platform" to platform,
             "environment" to environment,
             "release_version" to releaseVersion,

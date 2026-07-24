@@ -691,17 +691,50 @@ object RiviumTrace {
         val reporter = NativeCrashReporter(ctx)
         nativeCrashReporter = reporter
 
-        // Drain any historical exit reasons (crashes, ANRs, native crashes)
-        // that occurred since our last poll. Send each one synchronously so
-        // they are not lost if the next event drops the network queue.
-        val errors = reporter.drainPendingCrashReports(
-            environment = cfg.environment,
-            releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(ctx),
-            userAgent = userAgent
-        )
-        for (error in errors) {
-            RiviumTraceLogger.info("Sending native crash from previous session (reason=${error.extra["exit_reason"]})")
-            c.sendErrorSync(error)
+        // Drain and dispatch on a background thread. Synchronous OkHttp on the
+        // main thread would trigger NetworkOnMainThreadException, and the
+        // ApplicationExitInfo query itself is cheap but the send is not.
+        //
+        // The whole body is wrapped in try/catch(Throwable) — the crash
+        // reporter must never itself crash the host app. Any unexpected
+        // failure (parser bug, OkHttp init failure, NoSuchMethodError from
+        // a classloader collision, etc.) is swallowed here.
+        Thread({
+            try {
+                val pending = reporter.drainPendingCrashReports(
+                    environment = cfg.environment,
+                    releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(ctx),
+                    userAgent = userAgent
+                )
+                for (item in pending) {
+                    RiviumTraceLogger.info(
+                        "Sending native crash from previous session " +
+                            "(reason=${item.error.extra["exit_reason"]}, ts=${item.timestamp})"
+                    )
+                    val sent = c.sendErrorSync(item.error)
+                    if (sent) {
+                        // Only advance the watermark on success. A failed send is
+                        // retried on the next launch instead of being silently lost.
+                        reporter.markSent(item.timestamp)
+                    } else {
+                        // Stop advancing so older-then-current records still retry
+                        // next time; a transient network failure shouldn't purge
+                        // the backlog.
+                        RiviumTraceLogger.warn(
+                            "Native crash send failed (ts=${item.timestamp}); will retry next launch"
+                        )
+                        break
+                    }
+                }
+            } catch (t: Throwable) {
+                RiviumTraceLogger.error(
+                    "NativeCrashDrain failed (swallowed to protect host app): ${t.javaClass.simpleName}: ${t.message}",
+                    t
+                )
+            }
+        }, "RiviumTrace-NativeCrashDrain").apply {
+            isDaemon = true
+            start()
         }
     }
 
