@@ -2,6 +2,8 @@ package co.rivium.trace.example
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import co.rivium.trace.example.databinding.ActivityMainBinding
@@ -459,6 +461,32 @@ class MainActivity : AppCompatActivity() {
                     showToast("Sample rate: ${sentCount.get()}/$totalErrors errors sent (rate: 1.0)")
                 }
             }
+        }
+
+        // Native crash test buttons. These trigger real POSIX signals from a
+        // JNI shim so ApplicationExitInfo records REASON_CRASH_NATIVE with a
+        // tombstone. The app dies immediately; on next launch the SDK's
+        // NativeCrashReporter drains the pending report and POSTs it as a
+        // Sentry-shape structured event.
+        binding.btnNativeSigsegv.setOnClickListener {
+            RiviumTrace.addBreadcrumb("User triggered native SIGSEGV", BreadcrumbType.INFO)
+            Handler(Looper.getMainLooper()).postDelayed({
+                CrashHelper.nativeSigsegv()
+            }, 50)
+        }
+
+        binding.btnNativeAbort.setOnClickListener {
+            RiviumTrace.addBreadcrumb("User triggered native abort()", BreadcrumbType.INFO)
+            Handler(Looper.getMainLooper()).postDelayed({
+                CrashHelper.nativeAbort()
+            }, 50)
+        }
+
+        binding.btnNativeAnr.setOnClickListener {
+            RiviumTrace.addBreadcrumb("User triggered ANR (main thread block)", BreadcrumbType.INFO)
+            Handler(Looper.getMainLooper()).postDelayed({
+                Thread.sleep(15_000)
+            }, 50)
         }
     }
 
