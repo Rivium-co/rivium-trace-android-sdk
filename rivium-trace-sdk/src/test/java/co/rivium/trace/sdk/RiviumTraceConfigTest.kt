@@ -13,22 +13,14 @@ class RiviumTraceConfigTest {
         assertEquals("rv_live_abc123", config.apiKey)
     }
 
-    @Test
-    fun `config accepts rv_test_ api key`() {
-        val config = RiviumTraceConfig(apiKey = "rv_test_abc123")
-        assertEquals("rv_test_abc123", config.apiKey)
+    @Test(expected = IllegalArgumentException::class)
+    fun `config rejects legacy nl_live_ api key`() {
+        RiviumTraceConfig(apiKey = "nl_live_abc123")
     }
 
-    @Test
-    fun `config accepts nl_live_ api key`() {
-        val config = RiviumTraceConfig(apiKey = "nl_live_abc123")
-        assertEquals("nl_live_abc123", config.apiKey)
-    }
-
-    @Test
-    fun `config accepts nl_test_ api key`() {
-        val config = RiviumTraceConfig(apiKey = "nl_test_abc123")
-        assertEquals("nl_test_abc123", config.apiKey)
+    @Test(expected = IllegalArgumentException::class)
+    fun `config rejects rv_test_ api key`() {
+        RiviumTraceConfig(apiKey = "rv_test_abc123")
     }
 
     // --- Invalid API Keys ---
@@ -116,7 +108,7 @@ class RiviumTraceConfigTest {
     @Test
     fun `config accepts valid custom values`() {
         val config = RiviumTraceConfig(
-            apiKey = "rv_test_custom",
+            apiKey = "rv_live_custom",
             environment = "staging",
             release = "1.2.3",
             debug = true,
@@ -131,7 +123,7 @@ class RiviumTraceConfigTest {
             sampleRate = 0.5f
         )
 
-        assertEquals("rv_test_custom", config.apiKey)
+        assertEquals("rv_live_custom", config.apiKey)
         assertEquals("staging", config.environment)
         assertEquals("1.2.3", config.release)
         assertTrue(config.debug)
@@ -160,7 +152,7 @@ class RiviumTraceConfigTest {
 
     @Test
     fun `builder sets all properties`() {
-        val config = RiviumTraceConfig.Builder("rv_test_builder")
+        val config = RiviumTraceConfig.Builder("rv_live_builder")
             .environment("development")
             .release("2.0.0")
             .debug(true)
@@ -175,7 +167,7 @@ class RiviumTraceConfigTest {
             .sampleRate(0.75f)
             .build()
 
-        assertEquals("rv_test_builder", config.apiKey)
+        assertEquals("rv_live_builder", config.apiKey)
         assertEquals("development", config.environment)
         assertEquals("2.0.0", config.release)
         assertTrue(config.debug)

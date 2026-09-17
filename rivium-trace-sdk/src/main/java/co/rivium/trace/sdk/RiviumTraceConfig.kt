@@ -3,7 +3,7 @@ package co.rivium.trace.sdk
 /**
  * Configuration for RiviumTrace SDK
  *
- * @property apiKey The API Key from Rivium Console (rv_live_xxx or rv_test_xxx)
+ * @property apiKey The API Key from Rivium Console (rv_live_xxx)
  * @property environment Environment name (e.g., "production", "staging", "development")
  * @property release Release/version string of your application
  * @property debug Enable debug logging
@@ -36,7 +36,7 @@ data class RiviumTraceConfig(
 ) {
     init {
         require(apiKey.isNotBlank()) { "API key cannot be empty" }
-        require(apiKey.startsWith("rv_live_") || apiKey.startsWith("rv_test_") || apiKey.startsWith("nl_live_") || apiKey.startsWith("nl_test_")) { "API key must start with rv_live_ or rv_test_" }
+        require(apiKey.startsWith("rv_live_")) { "API key must start with rv_live_" }
         require(maxBreadcrumbs > 0) { "maxBreadcrumbs must be positive" }
         require(httpTimeout > 0) { "httpTimeout must be positive" }
         require(sampleRate in 0.0f..1.0f) { "sampleRate must be between 0.0 and 1.0" }
