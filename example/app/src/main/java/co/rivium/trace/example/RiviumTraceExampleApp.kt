@@ -10,9 +10,8 @@ class RiviumTraceExampleApp : Application() {
         super.onCreate()
 
         // Initialize RiviumTrace SDK
-        val config = RiviumTraceConfig.Builder("rv_live_d15ea4bd5e2c7a4c9e55576433c0e78aaed005a0036d89ac")
+        val config = RiviumTraceConfig.Builder("rv_live_your_api_key")
             .environment(if (BuildConfig.DEBUG) "development" else "production")
-            .apiUrl("http://192.168.224.147:3001")
             .release(BuildConfig.VERSION_NAME)
             .debug(BuildConfig.DEBUG)
             .captureUncaughtExceptions(true)

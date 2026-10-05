@@ -2,6 +2,14 @@
 
 All notable changes to the RiviumTrace Android SDK will be documented in this file.
 
+## [0.2.1] - 2026-10-05
+
+### Fixed
+- `enableOfflineStorage` now works: errors that cannot be sent because the
+  device is offline are kept on the device (up to 100) and sent later.
+- The minimum supported Android version is API 19 (Android 4.4). Earlier
+  releases declared API 16, but apps below API 19 could not build with the SDK.
+
 ## [0.2.0] - 2026-07-24
 
 ### Breaking changes

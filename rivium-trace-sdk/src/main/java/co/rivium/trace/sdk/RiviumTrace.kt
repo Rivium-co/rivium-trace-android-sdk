@@ -3,6 +3,7 @@ package co.rivium.trace.sdk
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * RiviumTrace Android SDK
  *
  * Error tracking SDK for Android applications.
- * Supports API 16+ (Android 4.1 Jelly Bean and above).
+ * Supports API 19+ (Android 4.4 KitKat and above).
  *
  * Usage:
  * ```kotlin
@@ -99,6 +100,10 @@ object RiviumTrace {
 
         // Configure breadcrumbs
         BreadcrumbService.setMaxBreadcrumbs(config.maxBreadcrumbs)
+
+        // Offline storage: keep errors that cannot be sent while the network
+        // is down, and resend what an earlier session left behind.
+        setupOfflineStorage()
 
         // Setup uncaught exception handler (real JVM/Kotlin crashes)
         if (config.captureUncaughtExceptions) {
@@ -683,6 +688,31 @@ object RiviumTrace {
         return true
     }
 
+    private fun setupOfflineStorage() {
+        try {
+            val ctx = context ?: return
+            val cfg = config ?: return
+            val c = client ?: return
+
+            // Null when enableOfflineStorage is off: nothing is stored and
+            // the disk is not touched.
+            val store = OfflineErrorStore.createIfEnabled(cfg) {
+                // Runs on a background thread, on first use.
+                val noBackup = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    ctx.noBackupFilesDir
+                } else null
+                noBackup ?: ctx.filesDir
+            } ?: return
+
+            c.offlineStore = store
+
+            // Background pass over anything stored by an earlier session.
+            c.flushStoredErrors()
+        } catch (t: Throwable) {
+            RiviumTraceLogger.error("Offline storage setup failed: ${t.message}")
+        }
+    }
+
     private fun setupNativeCrashReporting() {
         val ctx = context ?: return
         val cfg = config ?: return
@@ -765,8 +795,10 @@ object RiviumTrace {
                     url = currentActivityName?.let { "android://$it" }
                 )
 
-                // Send synchronously to ensure delivery before crash
-                client?.sendErrorSync(error)
+                // Send synchronously to ensure delivery before crash. If the
+                // network is down the report is kept on disk (when offline
+                // storage is enabled) and sent on a later launch.
+                client?.sendErrorSyncOrStore(error)
             } catch (e: Exception) {
                 RiviumTraceLogger.error("Failed to send crash report: ${e.message}")
             }

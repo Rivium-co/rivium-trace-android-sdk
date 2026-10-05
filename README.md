@@ -15,9 +15,9 @@ Official Android SDK for [RiviumTrace](https://rivium.co/cloud/rivium-trace) - E
 - **Performance Monitoring** - HTTP request timing, custom operation tracking, and batched span reporting
 - **Logging** - Structured logging with batching, exponential backoff retries, and level-based filtering
 - **OkHttp Integration** - Automatic HTTP breadcrumbs, error capture, and APM tracking
-- **Offline Support** - Cache errors when offline
+- **Offline Support** - Errors that cannot be sent while the device is offline are kept on the device and sent later
 - **Rich Context** - User sessions, global extras, tags, and custom metadata
-- **Minimum API 16** - Supports Android 4.1+ (99.9% of devices)
+- **Minimum API 19** - Supports Android 4.4+
 
 ## Installation
 
@@ -27,7 +27,7 @@ Add the dependency to your app's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.2.0'
+    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.2.1'
 }
 ```
 
@@ -48,7 +48,7 @@ Then add the dependency:
 
 ```gradle
 dependencies {
-    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.2.0'
+    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.2.1'
 }
 ```
 
@@ -58,7 +58,7 @@ dependencies {
 <dependency>
     <groupId>co.rivium.trace</groupId>
     <artifactId>rivium-trace-android-sdk</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
 </dependency>
 ```
 
@@ -409,7 +409,7 @@ class MainActivity : AppCompatActivity() {
 | `anrTimeoutMs` | 5000 | ANR detection timeout |
 | `maxBreadcrumbs` | 20 | Maximum breadcrumbs to store |
 | `httpTimeout` | 30 | HTTP request timeout (seconds) |
-| `enableOfflineStorage` | true | Cache errors when offline |
+| `enableOfflineStorage` | true | Keep errors that could not be sent because of a network failure (up to 100, oldest dropped first) and send them on the next launch or once sending works again |
 | `sampleRate` | 1.0 | Error capture sample rate (0.0 - 1.0) |
 
 ## API Reference
@@ -480,14 +480,13 @@ The SDK includes ProGuard rules automatically. No additional configuration neede
 
 ## Minimum Requirements
 
-- **Android API 16+** (Android 4.1 Jelly Bean)
+- **Android API 19+** (Android 4.4 KitKat)
 - **Java 8+** or **Kotlin 1.5+**
 
 ## Device Compatibility
 
 | Android Version | API Level | Support |
 |----------------|-----------|---------|
-| Android 4.1 Jelly Bean | 16 | Supported |
 | Android 4.4 KitKat | 19 | Supported |
 | Android 5.0 Lollipop | 21 | Supported |
 | Android 6.0 Marshmallow | 23 | Supported |
