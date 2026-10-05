@@ -27,7 +27,7 @@ Add the dependency to your app's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.2.2'
+    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.2.3'
 }
 ```
 
@@ -48,7 +48,7 @@ Then add the dependency:
 
 ```gradle
 dependencies {
-    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.2.2'
+    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.2.3'
 }
 ```
 
@@ -58,7 +58,7 @@ dependencies {
 <dependency>
     <groupId>co.rivium.trace</groupId>
     <artifactId>rivium-trace-android-sdk</artifactId>
-    <version>0.2.2</version>
+    <version>0.2.3</version>
 </dependency>
 ```
 

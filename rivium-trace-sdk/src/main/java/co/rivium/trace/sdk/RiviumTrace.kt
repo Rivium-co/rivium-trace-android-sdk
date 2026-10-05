@@ -785,6 +785,14 @@ object RiviumTrace {
         originalExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
 
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            // The app is going down: the previous handler may keep the main
+            // thread busy for as long as the system's crash dialog is open,
+            // and that is not a hang to report.
+            try {
+                anrWatchdog?.stop()
+            } catch (_: Throwable) {
+            }
+
             // Whatever happens here, the previous handler runs afterwards:
             // the SDK must never change how the app crashes.
             try {
@@ -846,7 +854,7 @@ object RiviumTrace {
         val cfg = config ?: return
         anrWatchdog = ANRWatchdogService()
 
-        anrWatchdog?.start(cfg.anrTimeoutMs) { stackTrace ->
+        anrWatchdog?.start(cfg.anrTimeoutMs) { stackTrace, blockedMs ->
             RiviumTraceLogger.warn("ANR detected, sending report...")
 
             val error = RiviumTraceError.anr(
@@ -854,7 +862,7 @@ object RiviumTrace {
                 environment = cfg.environment,
                 releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(context!!),
                 userAgent = userAgent,
-                anrDurationMs = cfg.anrTimeoutMs
+                anrDurationMs = blockedMs
             )
 
             client?.sendError(error)

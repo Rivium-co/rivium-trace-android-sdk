@@ -153,12 +153,13 @@ class RiviumTraceClientOfflineTest {
     fun `network failure stores the exact body that would have been sent`() {
         // What the server gets when the send works
         val online = client(startServer(), offline = false)
-        assertTrue(sendAndWait(online, error("boom")).first)
+        val boom = error("boom")
+        assertTrue(sendAndWait(online, boom).first)
         val sentBody = received.single().body
 
         // Same error, unreachable server
         val offline = client(deadUrl())
-        val (ok, _) = sendAndWait(offline, error("boom"))
+        val (ok, _) = sendAndWait(offline, boom)
 
         assertFalse(ok)
         assertEquals(listOf(sentBody), store().readAll().map { it.body })
@@ -246,8 +247,9 @@ class RiviumTraceClientOfflineTest {
     @Test
     fun `crash report has the same body as an error sent the normal way`() {
         val client = client(startServer(), offline = false)
-        assertTrue(sendAndWait(client, error("boom")).first)
-        assertEquals(CrashDelivery.SENT, client.deliverCrashReport(error("boom")))
+        val boom = error("boom")
+        assertTrue(sendAndWait(client, boom).first)
+        assertEquals(CrashDelivery.SENT, client.deliverCrashReport(boom))
 
         assertEquals(2, received.size)
         assertEquals(received[0].body, received[1].body)
@@ -257,15 +259,25 @@ class RiviumTraceClientOfflineTest {
     @Test
     fun `crash report is stored when the network is down`() {
         val online = client(startServer(), offline = false)
-        assertTrue(sendAndWait(online, error("crash")).first)
+        val crash = error("crash")
+        assertTrue(sendAndWait(online, crash).first)
         val sentBody = received.single().body
 
         val handled = AtomicInteger()
-        val delivery = client(deadUrl()).deliverCrashReport(error("crash")) { handled.incrementAndGet() }
+        val delivery = client(deadUrl()).deliverCrashReport(crash) { handled.incrementAndGet() }
 
         assertEquals(CrashDelivery.STORED, delivery)
         assertEquals(listOf(sentBody), store().readAll().map { it.body })
         assertEquals(1, handled.get())
+    }
+
+    @Test
+    fun `a stored crash report keeps its event id so the server can count it once`() {
+        val crash = error("crash")
+        assertEquals(CrashDelivery.STORED, client(deadUrl()).deliverCrashReport(crash))
+
+        val stored = store().readAll().single().body
+        assertTrue(stored.contains("\"event_id\":\"${crash.eventId}\""))
     }
 
     @Test

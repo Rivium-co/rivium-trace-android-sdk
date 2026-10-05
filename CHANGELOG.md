@@ -2,6 +2,18 @@
 
 All notable changes to the RiviumTrace Android SDK will be documented in this file.
 
+## [0.2.3] - 2026-10-05
+
+### Fixed
+- One hang is one ANR report. Before, a report was sent every `anrTimeoutMs`
+  for as long as the main thread stayed blocked. The report now carries how
+  long the thread had been blocked when it was sent.
+- No false ANR reports after a crash while the system's "keeps stopping"
+  dialog is open.
+- Every error carries an `event_id`, so a report that is sent again (for
+  example a stored crash report on the next launch) is counted once by the
+  server.
+
 ## [0.2.2] - 2026-10-05
 
 ### Fixed
