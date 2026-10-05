@@ -2,6 +2,16 @@
 
 All notable changes to the RiviumTrace Android SDK will be documented in this file.
 
+## [0.2.2] - 2026-10-05
+
+### Fixed
+- Crashes on the main thread are now reported. Before, their report was
+  neither sent nor stored.
+- A crash report the server does not accept within 2 seconds is kept on the
+  device and sent on the next launch.
+- Android 11+: a Java/Kotlin crash that was already reported is no longer
+  reported again as "Native crash" on the next launch.
+
 ## [0.2.1] - 2026-10-05
 
 ### Fixed

@@ -26,11 +26,24 @@ internal sealed class SendOutcome {
 
     /** The request could not be made at all (unexpected, non-network failure). */
     object Failed : SendOutcome()
+
+    /** The server took the report (2xx). */
+    val isAccepted: Boolean
+        get() = this is Http && code in 200..299
+
+    /**
+     * The server refused the report and would refuse it again: 4xx other
+     * than 408 and 429. Everything that is neither accepted nor rejected is
+     * worth another attempt later.
+     */
+    val isRejected: Boolean
+        get() = this is Http && code in 400..499 && code != 408 && code != 429
 }
 
 /**
  * Disk queue for error payloads that could not be sent because the network
- * was unavailable.
+ * was unavailable, and for crash reports the server did not accept before
+ * the process ended.
  *
  * - One app-private JSON file holding at most [maxEntries] payloads; when
  *   full, the oldest are dropped.
@@ -157,9 +170,8 @@ internal class OfflineErrorStore(
                     }
 
                     if (outcome is SendOutcome.Http) {
-                        val accepted = outcome.code in 200..299
-                        val rejected = outcome.code in 400..499 &&
-                            outcome.code != 408 && outcome.code != 429
+                        val accepted = outcome.isAccepted
+                        val rejected = outcome.isRejected
                         if (accepted || rejected) {
                             // Remove straight away so a crash later in the
                             // pass cannot cause this entry to be sent again.

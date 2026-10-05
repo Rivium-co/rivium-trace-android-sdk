@@ -27,7 +27,7 @@ Add the dependency to your app's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.2.1'
+    implementation 'co.rivium.trace:rivium-trace-android-sdk:0.2.2'
 }
 ```
 
@@ -48,7 +48,7 @@ Then add the dependency:
 
 ```gradle
 dependencies {
-    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.2.1'
+    implementation 'com.github.Rivium-co:rivium-trace-android-sdk:0.2.2'
 }
 ```
 
@@ -58,7 +58,7 @@ dependencies {
 <dependency>
     <groupId>co.rivium.trace</groupId>
     <artifactId>rivium-trace-android-sdk</artifactId>
-    <version>0.2.1</version>
+    <version>0.2.2</version>
 </dependency>
 ```
 
@@ -367,15 +367,15 @@ RiviumTraceErrorInterceptor(captureClientErrors = true, captureServerErrors = tr
 
 RiviumTrace reports crashes through three mechanisms:
 
-1. **Uncaught exception handler** (all Android versions): When a Java/Kotlin exception is not caught, the SDK sends the report — with breadcrumbs, user ID, extras and tags — before the process exits. If the network is unavailable, the report is kept on the device (see `enableOfflineStorage`) and sent later. The handler that was installed before `RiviumTrace.init()` is still called afterwards.
-2. **Exit records from Android** (Android 11 / API 30 and newer): On each launch, `RiviumTrace.init()` reads the exit reasons Android recorded for your app (`ApplicationExitInfo`, up to the 20 most recent) and reports every crash, native crash and ANR record it has not reported yet. Native crash reports include the tombstone captured by the OS (signal, threads, stack frames). A report that cannot be sent is retried on the next launch.
+1. **Uncaught exception handler** (all Android versions): When a Java/Kotlin exception is not caught, on the main thread or any other thread, the SDK sends the report — with breadcrumbs, user ID, extras and tags — before the process exits. It waits at most 2 seconds for the server. If the report was not accepted in that time (no network, a slow connection, a server error), it is kept on the device (see `enableOfflineStorage`) and sent on the next launch. The handler that was installed before `RiviumTrace.init()` is always called afterwards.
+2. **Exit records from Android** (Android 11 / API 30 and newer): On each launch, `RiviumTrace.init()` reads the exit reasons Android recorded for your app (`ApplicationExitInfo`, up to the 20 most recent) and reports every native crash and ANR record it has not reported yet. A Java/Kotlin crash record is reported from here only when the uncaught exception handler could not report that crash itself. Native crash reports include the tombstone captured by the OS (signal, threads, stack frames). A report that cannot be sent is retried on the next launch.
 3. **ANR watchdog** (all Android versions): A background thread checks that the main thread responds within `anrTimeoutMs`. When it does not, the SDK sends an ANR report with the main thread's stack trace while the app is still running.
 
 ### Types of Crashes Detected
 
 | Crash Type | Detection | Notes |
 |------------|-----------|-------|
-| Java/Kotlin Exceptions | Real-time | Sent by the uncaught exception handler before the process exits |
+| Java/Kotlin Exceptions | Real-time | Sent by the uncaught exception handler before the process exits, or on the next launch when it could not be sent then |
 | ANR Events | Real-time | Watchdog: main thread blocked for `anrTimeoutMs` (default 5 seconds). On Android 11+, ANRs recorded by the system are also reported on the next launch |
 | Native Crashes (SIGSEGV, etc.) | Next Launch | Android 11+ (API 30) only, from the exit record and OS tombstone |
 | OOM Crashes | Real-time | A Java `OutOfMemoryError` is reported like any other uncaught exception. A process killed by the system for low memory is not reported |
@@ -401,12 +401,12 @@ Crash detection does not depend on `RiviumTrace.close()`. `close()` flushes buff
 | `debug` | false | Enable debug logging |
 | `enabled` | true | Enable/disable SDK |
 | `captureUncaughtExceptions` | true | Capture uncaught exceptions |
-| `captureSignalCrashes` | true | Report crashes, native crashes and ANRs that Android recorded for earlier sessions (Android 11+ / API 30+) |
+| `captureSignalCrashes` | true | Report native crashes and ANRs that Android recorded for earlier sessions, and Java/Kotlin crashes the uncaught exception handler could not report (Android 11+ / API 30+) |
 | `captureAnr` | true | Detect ANR events |
 | `anrTimeoutMs` | 5000 | ANR detection timeout |
 | `maxBreadcrumbs` | 20 | Maximum breadcrumbs to store |
 | `httpTimeout` | 30 | HTTP request timeout (seconds) |
-| `enableOfflineStorage` | true | Keep errors that could not be sent because of a network failure (up to 100, oldest dropped first) and send them on the next launch or once sending works again |
+| `enableOfflineStorage` | true | Keep errors that could not be sent because of a network failure, and crash reports the server did not accept in time (up to 100, oldest dropped first), and send them on the next launch or once sending works again |
 | `sampleRate` | 1.0 | Error capture sample rate (0.0 - 1.0) |
 
 ## API Reference

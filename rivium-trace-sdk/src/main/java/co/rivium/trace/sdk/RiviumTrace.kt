@@ -47,6 +47,7 @@ object RiviumTrace {
     private var client: RiviumTraceClient? = null
     private var context: Context? = null
     private var nativeCrashReporter: NativeCrashReporter? = null
+    private var handledCrashMarkers: HandledCrashMarkers? = null
     private var anrWatchdog: ANRWatchdogService? = null
 
     private val isInitialized = AtomicBoolean(false)
@@ -104,6 +105,13 @@ object RiviumTrace {
         // Offline storage: keep errors that cannot be sent while the network
         // is down, and resend what an earlier session left behind.
         setupOfflineStorage()
+
+        // Where the uncaught exception handler notes the crashes it reported,
+        // so the exit records read below are not reported a second time.
+        if (config.captureSignalCrashes && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val appContext = context.applicationContext
+            handledCrashMarkers = HandledCrashMarkers({ storageDirectory(appContext) })
+        }
 
         // Setup uncaught exception handler (real JVM/Kotlin crashes)
         if (config.captureUncaughtExceptions) {
@@ -698,10 +706,7 @@ object RiviumTrace {
             // the disk is not touched.
             val store = OfflineErrorStore.createIfEnabled(cfg) {
                 // Runs on a background thread, on first use.
-                val noBackup = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    ctx.noBackupFilesDir
-                } else null
-                noBackup ?: ctx.filesDir
+                storageDirectory(ctx)
             } ?: return
 
             c.offlineStore = store
@@ -713,12 +718,20 @@ object RiviumTrace {
         }
     }
 
+    /** App-private directory for the SDK's own files. Touches the disk. */
+    private fun storageDirectory(ctx: Context): java.io.File? {
+        val noBackup = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            ctx.noBackupFilesDir
+        } else null
+        return noBackup ?: ctx.filesDir
+    }
+
     private fun setupNativeCrashReporting() {
         val ctx = context ?: return
         val cfg = config ?: return
         val c = client ?: return
 
-        val reporter = NativeCrashReporter(ctx)
+        val reporter = NativeCrashReporter(ctx, handledCrashMarkers)
         nativeCrashReporter = reporter
 
         // Drain and dispatch on a background thread. Synchronous OkHttp on the
@@ -772,35 +785,15 @@ object RiviumTrace {
         originalExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
 
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            RiviumTraceLogger.error("Uncaught exception in thread ${thread.name}", throwable)
-
+            // Whatever happens here, the previous handler runs afterwards:
+            // the SDK must never change how the app crashes.
             try {
-                val cfg = config ?: return@setDefaultUncaughtExceptionHandler
-                val error = RiviumTraceError.fromThrowable(
-                    throwable = throwable,
-                    message = "Uncaught exception in thread: ${thread.name}",
-                    environment = cfg.environment,
-                    releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(context!!),
-                    userAgent = userAgent,
-                    breadcrumbs = BreadcrumbService.getBreadcrumbs(),
-                    extra = extraContext + mapOf(
-                        "user_id" to userId,
-                        "session_id" to sessionId,
-                        "thread_name" to thread.name,
-                        "thread_id" to thread.id,
-                        "error_type" to "uncaught_exception",
-                        "device_info" to DeviceInfo.getDeviceInfo()
-                    ),
-                    tags = tags,
-                    url = currentActivityName?.let { "android://$it" }
-                )
-
-                // Send synchronously to ensure delivery before crash. If the
-                // network is down the report is kept on disk (when offline
-                // storage is enabled) and sent on a later launch.
-                client?.sendErrorSyncOrStore(error)
-            } catch (e: Exception) {
-                RiviumTraceLogger.error("Failed to send crash report: ${e.message}")
+                reportUncaughtException(thread, throwable)
+            } catch (t: Throwable) {
+                try {
+                    RiviumTraceLogger.error("Failed to report crash: ${t.message}")
+                } catch (_: Throwable) {
+                }
             }
 
             // Call original handler
@@ -808,6 +801,45 @@ object RiviumTrace {
         }
 
         RiviumTraceLogger.debug("Uncaught exception handler installed")
+    }
+
+    /**
+     * Runs on the crashing thread, which is often the main thread. The
+     * report is sent from a helper thread while this one waits a bounded
+     * time; a report that was not accepted in that time is stored for the
+     * next launch (when offline storage is enabled).
+     */
+    private fun reportUncaughtException(thread: Thread, throwable: Throwable) {
+        RiviumTraceLogger.error("Uncaught exception in thread ${thread.name}", throwable)
+
+        val cfg = config ?: return
+        val c = client ?: return
+        val error = RiviumTraceError.fromThrowable(
+            throwable = throwable,
+            message = "Uncaught exception in thread: ${thread.name}",
+            environment = cfg.environment,
+            releaseVersion = cfg.release ?: DeviceInfo.getAppVersion(context!!),
+            userAgent = userAgent,
+            breadcrumbs = BreadcrumbService.getBreadcrumbs(),
+            extra = extraContext + mapOf(
+                "user_id" to userId,
+                "session_id" to sessionId,
+                "thread_name" to thread.name,
+                "thread_id" to thread.id,
+                "error_type" to "uncaught_exception",
+                "device_info" to DeviceInfo.getDeviceInfo()
+            ),
+            tags = tags,
+            url = currentActivityName?.let { "android://$it" }
+        )
+
+        val markers = handledCrashMarkers
+        c.deliverCrashReport(
+            error = error,
+            onHandled = if (markers == null) null else {
+                { markers.record(android.os.Process.myPid(), System.currentTimeMillis()) }
+            }
+        )
     }
 
     private fun setupAnrDetection() {
