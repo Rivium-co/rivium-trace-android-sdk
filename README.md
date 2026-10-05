@@ -10,7 +10,7 @@ Official Android SDK for [RiviumTrace](https://rivium.co/cloud/rivium-trace) - E
 
 - **Error Tracking** - Automatically capture uncaught exceptions and crashes
 - **ANR Detection** - Detect Application Not Responding events
-- **Crash Detection** - Detect native crashes from previous sessions
+- **Crash Detection** - Report native crashes from previous sessions on the next launch (Android 11+)
 - **Breadcrumbs** - Track user actions leading up to errors
 - **Performance Monitoring** - HTTP request timing, custom operation tracking, and batched span reporting
 - **Logging** - Structured logging with batching, exponential backoff retries, and level-based filtering
@@ -326,9 +326,9 @@ RiviumTrace.flushLogs { success ->
 
 ### Logging Features
 
-- **Batching** - Logs are buffered and sent in configurable batches (default: 50)
+- **Batching** - Logs are buffered and sent in configurable batches (default: 50). They go out as one batch request when `sourceId` is set; without it each buffered log is sent in its own request
 - **Auto-flush** - Timer flushes logs at a configurable interval (default: 5s)
-- **Exponential backoff** - Failed sends retry with delays: 1s, 2s, 4s, 8s... up to 60s (max 10 attempts)
+- **Exponential backoff** - A failed batch is retried with delays: 2s, 4s, 8s... up to 60s (max 10 attempts). Logs sent without a `sourceId` are not retried
 - **Buffer limit** - Max 1000 logs in buffer; oldest logs dropped when exceeded
 - **Lazy timer** - Flush timer only runs when the buffer has logs
 - **Lifecycle-aware** - Automatically flushes when app goes to background
@@ -365,46 +365,43 @@ RiviumTraceErrorInterceptor(captureClientErrors = true, captureServerErrors = tr
 
 ### How It Works
 
-RiviumTrace uses a marker-based crash detection system that works for all crash types:
+RiviumTrace reports crashes through three mechanisms:
 
-1. **On SDK Init**: Creates a crash marker file
-2. **On Graceful Shutdown**: Deletes the marker via `RiviumTrace.close()`
-3. **On Next Launch**: If marker exists, a crash occurred - sends report
+1. **Uncaught exception handler** (all Android versions): When a Java/Kotlin exception is not caught, the SDK sends the report — with breadcrumbs, user ID, extras and tags — before the process exits. If the network is unavailable, the report is kept on the device (see `enableOfflineStorage`) and sent later. The handler that was installed before `RiviumTrace.init()` is still called afterwards.
+2. **Exit records from Android** (Android 11 / API 30 and newer): On each launch, `RiviumTrace.init()` reads the exit reasons Android recorded for your app (`ApplicationExitInfo`, up to the 20 most recent) and reports every crash, native crash and ANR record it has not reported yet. Native crash reports include the tombstone captured by the OS (signal, threads, stack frames). A report that cannot be sent is retried on the next launch.
+3. **ANR watchdog** (all Android versions): A background thread checks that the main thread responds within `anrTimeoutMs`. When it does not, the SDK sends an ANR report with the main thread's stack trace while the app is still running.
 
 ### Types of Crashes Detected
 
 | Crash Type | Detection | Notes |
 |------------|-----------|-------|
-| Java/Kotlin Exceptions | Real-time | Captured immediately |
-| ANR Events | Real-time | Main thread blocked detection |
-| Native Crashes (SIGSEGV, etc.) | Next Launch | Via crash marker |
-| OOM Crashes | Next Launch | Via crash marker |
+| Java/Kotlin Exceptions | Real-time | Sent by the uncaught exception handler before the process exits |
+| ANR Events | Real-time | Watchdog: main thread blocked for `anrTimeoutMs` (default 5 seconds). On Android 11+, ANRs recorded by the system are also reported on the next launch |
+| Native Crashes (SIGSEGV, etc.) | Next Launch | Android 11+ (API 30) only, from the exit record and OS tombstone |
+| OOM Crashes | Real-time | A Java `OutOfMemoryError` is reported like any other uncaught exception. A process killed by the system for low memory is not reported |
 
-### Important: Call close() on Exit
+### What Is Not Captured
 
-```kotlin
-class MainActivity : AppCompatActivity() {
-    override fun onDestroy() {
-        if (isFinishing) {
-            RiviumTrace.close()  // Mark graceful shutdown
-        }
-        super.onDestroy()
-    }
-}
-```
+- **Native crashes on Android 10 (API 29) and older** - There the SDK reports Java/Kotlin exceptions and watchdog ANRs only.
+- **Process kills that are not crashes** - Low-memory kills by the system, force stops and apps swiped away by the user are not reported.
+- **Context on exit-record and ANR reports** - Reports built from exit records and ANR watchdog reports do not include breadcrumbs, user ID, extras or tags.
+
+### You Do Not Need to Call close()
+
+Crash detection does not depend on `RiviumTrace.close()`. `close()` flushes buffered logs, stops the ANR watchdog and shuts down the SDK's HTTP client, and the SDK cannot be initialized again in the same process. Do not call it from an Activity's `onDestroy()`: the process usually outlives the Activity.
 
 ## Configuration
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `apiKey` | Required | Your API key from Rivium Console (`rv_live_xxx` or `rv_test_xxx`) |
+| `apiKey` | Required | Your API key from Rivium Console. Must start with `rv_live_`; any other value throws `IllegalArgumentException` when the config is built |
 | `apiUrl` | `https://trace.rivium.co` | API URL — set for self-hosted only |
 | `environment` | `"production"` | Environment name (production, staging, etc.) |
-| `release` | null | App version string |
+| `release` | null | App version string (the app's `versionName` is used if null) |
 | `debug` | false | Enable debug logging |
 | `enabled` | true | Enable/disable SDK |
 | `captureUncaughtExceptions` | true | Capture uncaught exceptions |
-| `captureSignalCrashes` | true | Detect native signal crashes |
+| `captureSignalCrashes` | true | Report crashes, native crashes and ANRs that Android recorded for earlier sessions (Android 11+ / API 30+) |
 | `captureAnr` | true | Detect ANR events |
 | `anrTimeoutMs` | 5000 | ANR detection timeout |
 | `maxBreadcrumbs` | 20 | Maximum breadcrumbs to store |
@@ -420,7 +417,7 @@ class MainActivity : AppCompatActivity() {
 - `init(context, config)` - Initialize SDK with configuration
 - `init(context, apiKey)` - Initialize SDK with just an API key
 - `isInitialized()` - Check if SDK is initialized
-- `close()` - Cleanup SDK, flush pending data
+- `close()` - Flush buffered logs and shut the SDK down (it cannot be initialized again in the same process)
 
 **Error Capture:**
 - `captureException(throwable, message?, extra?, tags?, callback?)` - Capture exception
